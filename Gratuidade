@@ -82,6 +82,12 @@ if dados_todos:
     df_final = pd.DataFrame(dados_todos)
     df_final = df_final.dropna(axis=1, how="all")
 
+    # === 🧭 CORREÇÃO DO FORMATO DE DATA ===
+    if "dataAtualizacao" in df_final.columns:
+        df_final["dataAtualizacao"] = pd.to_datetime(
+            df_final["dataAtualizacao"], unit="ms", errors="coerce"
+        ).dt.strftime("%d/%m/%Y")
+
     # Exportar para Excel
     nome_arquivo = f"gratuidade_senai_{ANO}.xlsx"
     df_final.to_excel(nome_arquivo, index=False)
