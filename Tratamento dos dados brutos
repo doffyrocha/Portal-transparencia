@@ -1,0 +1,91 @@
+import pandas as pd
+import numpy as np
+
+data_df = pd.read_excel("gratuidade_2025_consolidado.xlsx", sheet_name="Sheet1")
+clean_df = data_df.drop(
+    columns=["Unnamed: 0", "Unnamed: 2", "Unnamed: 3", "Unnamed: 6"]
+)
+program_type = ["GRATUIDADE REGIMENTAL", "EXCETO GRATUIDADE REGIMENTAL"]
+
+blank_cells = clean_df["TRANSPARÊNCIA SENAI"].isna()
+blank_cells = blank_cells[blank_cells == True].index
+program_type_idx = clean_df[
+    clean_df["TRANSPARÊNCIA SENAI"] == "GRATUIDADE REGIMENTAL"
+].index
+
+modalidade_por_tipo = {}
+for idx in program_type_idx:
+    next_empty_cell = blank_cells[blank_cells > idx][0].item()
+    data = (
+        clean_df.iloc[(idx + 1) : (next_empty_cell - 1)]
+        .reset_index()
+        .drop(columns=["index"])
+    )
+
+    programas = data[data["TRANSPARÊNCIA SENAI"].str.isupper()]["TRANSPARÊNCIA SENAI"]
+    programas_idx = programas.index
+    modalidades = {
+        programas.iloc[0]: data.iloc[programas_idx[0] + 1 : programas_idx[1]],
+        programas.iloc[1]: data.iloc[programas_idx[1] + 1 : len(data)],
+    }
+    for p, m in modalidades.items():
+        mod_list = m["TRANSPARÊNCIA SENAI"].tolist()
+        novas_modalidades = set(mod_list) - set(list(modalidade_por_tipo.keys()))
+        if len(novas_modalidades) > 0:
+            for mod in novas_modalidades:
+                modalidade_por_tipo[mod] = p
+
+modalidades = list(modalidade_por_tipo.keys())
+modalidades.append("Programa/Modalidade")
+
+mod_df = (
+    clean_df[clean_df["TRANSPARÊNCIA SENAI"].isin(modalidades)]
+    .reset_index()
+    .drop(columns=["index"])
+)
+mod_df.insert(0, "Programa", value=np.nan)
+mod_df.insert(0, "Tipo", value=np.nan)
+mod_df = mod_df.rename(columns={"TRANSPARÊNCIA SENAI": "Modalidade"})
+mod_df["Programa"] = mod_df["Modalidade"].map(modalidade_por_tipo)
+
+gratuidade_mod_df = mod_df[
+    ["Tipo", "Programa", "Modalidade", "Unnamed: 4", "Unnamed: 5", "Unnamed: 8", "UF"]
+].copy()
+gratuidade_mod_df["Tipo"] = "Gratuidade Regimental"
+
+exceto_gratuidade_mod_df = mod_df[
+    ["Tipo", "Programa", "Modalidade", "Unnamed: 10", "UF"]
+].copy()
+exceto_gratuidade_mod_df["Tipo"] = "Exceto Gratuidade Regimental"
+
+final_df = pd.concat([gratuidade_mod_df, exceto_gratuidade_mod_df])
+final_df[["Unnamed: 4", "Unnamed: 5", "Unnamed: 8", "Unnamed: 10"]] = final_df[
+    ["Unnamed: 4", "Unnamed: 5", "Unnamed: 8", "Unnamed: 10"]
+].replace({np.nan: "não se aplica"})
+
+pattern_divisions = final_df[final_df["Modalidade"] == "Programa/Modalidade"].index
+final_df.iloc[pattern_divisions, :] = np.nan
+
+final_df = final_df.rename(
+    columns={
+        "Unnamed: 4": "Vagas Planejadas Anual",
+        "Unnamed: 5": "Matrículas Realizadas⁵ (Jan-Dez)",
+        "Unnamed: 8": "Hora-Aluno Realizado⁵ (Jan-Dez)",
+        "Unnamed: 10": "Hora-Aluno Realizado⁵ (Jan-Dez)",
+    }
+)
+
+final_df = final_df[
+    [
+        "Tipo",
+        "Programa",
+        "Modalidade",
+        "Vagas Planejadas Anual",
+        "Matrículas Realizadas⁵ (Jan-Dez)",
+        "Hora-Aluno Realizado⁵ (Jan-Dez)",
+        "Hora-Aluno Realizado⁵ (Jan-Dez)",
+        "UF",
+    ]
+]
+
+final_df.to_csv("douglas.csv", index=False)
