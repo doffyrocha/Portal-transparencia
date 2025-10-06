@@ -46,6 +46,16 @@ if dados_todos:
     df_final = pd.concat(dados_todos, ignore_index=True)
     df_final = df_final.dropna(axis=1, how="all")
 
+    # === 🧭 CORREÇÃO AUTOMÁTICA DE DATAS ===
+    for col in df_final.columns:
+        if "data" in col.lower():  # identifica colunas que contêm "data"
+            try:
+                df_final[col] = pd.to_datetime(
+                    df_final[col], unit="ms", errors="coerce"
+                ).dt.strftime("%d/%m/%Y")
+            except Exception:
+                pass  # ignora se não for timestamp
+
     # Reorganiza algumas colunas principais
     cols_ordenadas = [
         "UF", "siglaUF", "ano", "indicador", "realizado", "estimadoAnual",
