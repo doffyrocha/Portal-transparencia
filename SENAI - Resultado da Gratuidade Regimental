@@ -49,8 +49,17 @@ for uf in tqdm(estados, desc="Baixando dados dos estados"):
 # Junta todos os DataFrames
 if dados_consolidados:
     df_final = pd.concat(dados_consolidados, ignore_index=True)
-    # Remove colunas vazias (opcional)
     df_final = df_final.dropna(axis=1, how="all")
+
+    # === 🧭 CORREÇÃO AUTOMÁTICA DE DATAS ===
+    for col in df_final.columns:
+        if "data" in col.lower():  # pega qualquer coluna que contenha "data"
+            try:
+                df_final[col] = pd.to_datetime(
+                    df_final[col], unit="ms", errors="coerce"
+                ).dt.strftime("%d/%m/%Y")
+            except Exception:
+                pass  # ignora se a coluna não puder ser convertida
 
     # Exporta para Excel
     arquivo_excel = f"resultado_gratuidade_senai_{ANO}.xlsx"
