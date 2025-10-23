@@ -1,0 +1,165 @@
+import requests
+import pandas as pd
+from tqdm import tqdm
+from datetime import datetime
+
+# === CONFIGURAÇÕES ===
+ANOS = [2021, 2022, 2023, 2024, 2025]
+ENTIDADE = "SESI"
+
+departamentos = [
+    "SESI-AC", "SESI-AL", "SESI-AM", "SESI-AP", "SESI-BA", "SESI-CE", "SESI-DF",
+    "SESI-ES", "SESI-GO", "SESI-MA", "SESI-MT", "SESI-MS", "SESI-MG", "SESI-PA",
+    "SESI-PB", "SESI-PR", "SESI-PE", "SESI-PI", "SESI-RJ", "SESI-RN", "SESI-RS",
+    "SESI-RO", "SESI-RR", "SESI-SC", "SESI-SP", "SESI-SE", "SESI-TO"
+]
+
+# === FUNÇÕES AUXILIARES ===
+def to_num(v):
+    try:
+        v = str(v).replace('.', '').replace(',', '.')
+        return float(v)
+    except (ValueError, TypeError):
+        return None
+
+def formatar_data(dt):
+    if not dt:
+        return ""
+    try:
+        return datetime.fromisoformat(dt.replace("Z", "")).strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        try:
+            return datetime.fromtimestamp(int(dt) / 1000).strftime("%d/%m/%Y %H:%M")
+        except:
+            return str(dt)
+
+def coletar_json(url, params=None):
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception as e:
+        print(f"⚠️ Erro ao coletar {url}: {e}")
+    return None
+
+
+# === COLETA DE GRATUIDADE (vagas) ===
+def coletar_vagas():
+    dados = []
+    for ano in ANOS:
+        for uf in tqdm(departamentos, desc=f"Baixando VAGAS SESI {ano}"):
+            url = f"https://sistematransparenciaweb.com.br/api-gratuidade/publico/gratuidades/vagas/entidades/{ENTIDADE}/departamentos/{uf}/gratuidade"
+            params = {"ano": ano}
+            data = coletar_json(url, params)
+            if not data:
+                continue
+
+            data_formatada = formatar_data(data.get("dataAtualizacao"))
+            programas = data.get("programas", [])
+
+            if programas:
+                for prog in programas:
+                    nome_prog = prog.get("descricao", "")
+                    produtos = prog.get("produtos", [])
+
+                    if produtos:
+                        for prod in produtos:
+                            dados.append({
+                                "Ano": data.get("ano", ano),
+                                "UF": data.get("siglaRegional", uf),
+                                "Entidade Regional": data.get("nomeEntidadeRegional", ""),
+                                "Entidade Nacional": data.get("nomeEntidadeNacional", ""),
+                                "Código Entidade Regional": data.get("codEntidadeRegional", ""),
+                                "Código Entidade Nacional": data.get("codEntidadeNacional", ""),
+                                "Programa": nome_prog,
+                                "Código Programa": prog.get("codigoPrograma", ""),
+                                "Modalidade": prod.get("descricao", ""),
+                                "Código Modalidade": prod.get("codigoModalidadeGratuidade", ""),
+                                "Quantidade Planejada": to_num(prod.get("qntPlanejada")),
+                                "Quantidade Realizada": to_num(prod.get("qntRealizada")),
+                                "Hora-Aluno Gratuita": to_num(prod.get("qntHoraAlunoGratuidadeRealizada")),
+                                "Hora-Aluno Não Gratuita": to_num(prod.get("qntHoraAlunoNaoGratuitoRealizada")),
+                                "Total Hora-Aluno": to_num(prod.get("qntTotalHoraAlunoRealizada")),
+                                "Porcentagem Gratuita (%)": to_num(data.get("porcentagemValorHoraAlunoRealizadoGratuito")),
+                                "Total Gratuita": to_num(data.get("totalHoraAlunoRealizadaGratuita")),
+                                "Total Não Gratuita": to_num(data.get("totalHoraAlunoRealizadaNaoGratuita")),
+                                "Total Hora-Aluno Realizada": to_num(data.get("totalHoraAlunoRealizada")),
+                                "Hora-Aluno Outros": to_num(data.get("qntHoraAlunoRealizadaOutros")),
+                                "Período de Referência": data.get("periodoReferencia", ""),
+                                "Título": data.get("titulo", ""),
+                                "Nota": data.get("nota", ""),
+                                "Fonte": data.get("fonte", ""),
+                                "Análise": data.get("analise", ""),
+                                "Extra": data.get("extra", ""),
+                                "Última Atualização": data_formatada
+                            })
+                    else:
+                        # programa sem produtos
+                        dados.append({
+                            "Ano": data.get("ano", ano),
+                            "UF": data.get("siglaRegional", uf),
+                            "Entidade Regional": data.get("nomeEntidadeRegional", ""),
+                            "Entidade Nacional": data.get("nomeEntidadeNacional", ""),
+                            "Código Entidade Regional": data.get("codEntidadeRegional", ""),
+                            "Código Entidade Nacional": data.get("codEntidadeNacional", ""),
+                            "Programa": nome_prog,
+                            "Código Programa": prog.get("codigoPrograma", ""),
+                            "Modalidade": "",
+                            "Código Modalidade": "",
+                            "Quantidade Planejada": to_num(prog.get("qntPlanejada")),
+                            "Quantidade Realizada": to_num(prog.get("qntRealizada")),
+                            "Hora-Aluno Gratuita": to_num(prog.get("qntHoraAlunoGratuidadeRealizada")),
+                            "Hora-Aluno Não Gratuita": to_num(prog.get("qntHoraAlunoNaoGratuitoRealizada")),
+                            "Total Hora-Aluno": to_num(prog.get("qntTotalHoraAlunoRealizada")),
+                            "Porcentagem Gratuita (%)": to_num(data.get("porcentagemValorHoraAlunoRealizadoGratuito")),
+                            "Total Gratuita": to_num(data.get("totalHoraAlunoRealizadaGratuita")),
+                            "Total Não Gratuita": to_num(data.get("totalHoraAlunoRealizadaNaoGratuita")),
+                            "Total Hora-Aluno Realizada": to_num(data.get("totalHoraAlunoRealizada")),
+                            "Hora-Aluno Outros": to_num(data.get("qntHoraAlunoRealizadaOutros")),
+                            "Período de Referência": data.get("periodoReferencia", ""),
+                            "Título": data.get("titulo", ""),
+                            "Nota": data.get("nota", ""),
+                            "Fonte": data.get("fonte", ""),
+                            "Análise": data.get("analise", ""),
+                            "Extra": data.get("extra", ""),
+                            "Última Atualização": data_formatada
+                        })
+            else:
+                # sem programas (nível agregado)
+                dados.append({
+                    "Ano": data.get("ano", ano),
+                    "UF": data.get("siglaRegional", uf),
+                    "Entidade Regional": data.get("nomeEntidadeRegional", ""),
+                    "Entidade Nacional": data.get("nomeEntidadeNacional", ""),
+                    "Código Entidade Regional": data.get("codEntidadeRegional", ""),
+                    "Código Entidade Nacional": data.get("codEntidadeNacional", ""),
+                    "Programa": "",
+                    "Código Programa": "",
+                    "Modalidade": "",
+                    "Código Modalidade": "",
+                    "Quantidade Planejada": to_num(data.get("qntPlanejada")),
+                    "Quantidade Realizada": to_num(data.get("qntRealizada")),
+                    "Hora-Aluno Gratuita": to_num(data.get("horaAlunoRealizadaGratuita")),
+                    "Hora-Aluno Não Gratuita": to_num(data.get("qntHoraAlunoRealizadaNaoGratuita")),
+                    "Hora-Aluno Outros": to_num(data.get("qntHoraAlunoRealizadaOutros")),
+                    "Porcentagem Gratuita (%)": to_num(data.get("porcentagemValorHoraAlunoRealizadoGratuito")),
+                    "Total Gratuita": to_num(data.get("totalHoraAlunoRealizadaGratuita")),
+                    "Total Não Gratuita": to_num(data.get("totalHoraAlunoRealizadaNaoGratuita")),
+                    "Total Hora-Aluno Realizada": to_num(data.get("totalHoraAlunoRealizada")),
+                    "Período de Referência": data.get("periodoReferencia", ""),
+                    "Título": data.get("titulo", ""),
+                    "Nota": data.get("nota", ""),
+                    "Fonte": data.get("fonte", ""),
+                    "Análise": data.get("analise", ""),
+                    "Extra": data.get("extra", ""),
+                    "Última Atualização": data_formatada
+                })
+    return pd.DataFrame(dados)
+
+
+# === EXECUÇÃO ===
+df_vagas = coletar_vagas()
+df_vagas.to_excel("gratuidade_sesi_vagas.xlsx", index=False)
+
+print("✅ Extração SESI concluída com sucesso!")
+print(f"Total de linhas: {len(df_vagas)}")
