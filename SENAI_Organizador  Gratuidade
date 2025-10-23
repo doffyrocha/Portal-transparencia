@@ -1,0 +1,49 @@
+import pandas as pd
+
+# Caminho do arquivo original
+arquivo = "gratuidade_vagas_completa.xlsx"
+
+# Lê o Excel
+df = pd.read_excel(arquivo)
+
+# Verifica se a coluna 'Hora-Aluno Outros' existe
+if "Hora-Aluno Outros" not in df.columns:
+    raise ValueError("A coluna 'Hora-Aluno Outros' não foi encontrada no arquivo.")
+
+# Cria o dataframe dos 'Outros'
+df_outros = df.copy()
+
+# Ajusta os campos de Programa e Modalidade
+df_outros["Programa"] = "Outros Programas"
+df_outros["Modalidade"] = "Outras Modalidades"
+
+# Zera as colunas numéricas e de códigos
+cols_zerar = [
+    "Código Programa",
+    "Código Modalidade",
+    "Quantidade Planejada",
+    "Quantidade Realizada",
+    "Hora-Aluno Gratuita",
+    "Hora-Aluno Não Gratuita",
+    "Total Hora-Aluno",
+    "Porcentagem Gratuita (%)",
+    "Total Gratuita",
+    "Total Não Gratuita",
+    "Total Hora-Aluno Realizada"
+]
+
+for col in cols_zerar:
+    if col in df_outros.columns:
+        df_outros[col] = 0
+
+# Mantém os valores de 'Hora-Aluno Outros' nos 'Outros'
+# e zera essa coluna nas linhas originais
+df["Hora-Aluno Outros"] = 0
+
+# Junta tudo (originais + outros)
+df_final = pd.concat([df, df_outros], ignore_index=True)
+
+# Salva em novo arquivo
+df_final.to_excel("gratuidade_vagas_reorganizada.xlsx", index=False)
+
+print("✅ Arquivo 'gratuidade_vagas_reorganizada.xlsx' criado com sucesso!")
