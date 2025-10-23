@@ -1,0 +1,104 @@
+import requests
+import pandas as pd
+from tqdm import tqdm
+from time import sleep
+
+# === CONFIGURAÇÕES ===
+ANOS = range(2021, 2026)       # 2021 até 2025
+ENTIDADE = "SESI"
+BASE_URL = "https://sistematransparenciaweb.com.br/api-gratuidade-resultados"
+TIMEOUT = 20
+
+# Lista dos 27 departamentos regionais do SESI
+DEPARTAMENTOS = [
+    "SESI-AC", "SESI-AL", "SESI-AM", "SESI-AP", "SESI-BA",
+    "SESI-CE", "SESI-DF", "SESI-ES", "SESI-GO", "SESI-MA",
+    "SESI-MG", "SESI-MS", "SESI-MT", "SESI-PA", "SESI-PB",
+    "SESI-PE", "SESI-PI", "SESI-PR", "SESI-RJ", "SESI-RN",
+    "SESI-RO", "SESI-RR", "SESI-RS", "SESI-SC", "SESI-SE",
+    "SESI-SP", "SESI-TO"
+]
+
+# === FUNÇÃO PARA BAIXAR DADOS DE UM ESTADO/ANO ===
+def baixar_dados(departamento, ano):
+    """Consulta a API e retorna um DataFrame com os dados daquele estado/ano."""
+    url = f"{BASE_URL}/publico/gratuidade/dr/sesi/cumprimento-acordo"
+    params = {
+        "entidade": ENTIDADE,
+        "departamento": departamento,
+        "ano": ano
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=TIMEOUT)
+        if response.status_code == 200:
+            data = response.json()
+            if not data:
+                return None
+
+            # se retornar dict único, transforma em lista
+            if isinstance(data, dict):
+                data = [data]
+
+            df = pd.DataFrame(data)
+            df["UF"] = departamento
+            df["AnoConsulta"] = ano
+            return df
+
+        # 404 = sem dados publicados, apenas ignora
+        elif response.status_code == 404:
+            return None
+        else:
+            print(f"⚠️ Falha {departamento} ({ano}) - Status: {response.status_code}")
+            return None
+
+    except Exception as e:
+        print(f"❌ Erro ao baixar {departamento} ({ano}): {e}")
+        return None
+
+
+# === LOOP PRINCIPAL ===
+print("📡 Iniciando coleta dos dados de Gratuidade Regulamentar (2021–2025) do SESI...\n")
+
+todos_dados = []
+
+for ano in ANOS:
+    print(f"\n🗓️ Coletando dados do ano {ano}...\n")
+    for dep in tqdm(DEPARTAMENTOS, desc=f"Ano {ano}"):
+        df_dep = baixar_dados(dep, ano)
+        if df_dep is not None:
+            print(f"✅ Dados encontrados: {dep} ({ano})")
+            todos_dados.append(df_dep)
+        sleep(0.2)  # pausa curta para evitar bloqueio do servidor
+
+# === PROCESSAMENTO FINAL ===
+if todos_dados:
+    df_final = pd.concat(todos_dados, ignore_index=True).dropna(axis=1, how="all")
+
+    # Conversão automática de colunas de data
+    for col in df_final.columns:
+        if "data" in col.lower():
+            try:
+                df_final[col] = pd.to_datetime(df_final[col], errors="coerce").dt.strftime("%d/%m/%Y")
+            except Exception:
+                pass
+
+    # Reorganiza colunas principais
+    ordem = [
+        "UF", "AnoConsulta", "entidade", "departamento", "ano", "periodoReferencia",
+        "categoria", "titulo", "nota", "fonte", "analise", "extra",
+        "receitaBrutaContribuicaoCompulsoria", "receitaLiquidaContribuicaoCompulsoria",
+        "dataPublicacao"
+    ]
+    colunas = [c for c in ordem if c in df_final.columns] + [c for c in df_final.columns if c not in ordem]
+    df_final = df_final[colunas]
+
+    # Exporta Excel consolidado
+    nome_arquivo = "gratuidade_regulamentar_sesi_2021_2025.xlsx"
+    df_final.to_excel(nome_arquivo, index=False)
+
+    print("\n✅ Coleta concluída com sucesso!")
+    print(f"📊 Total de registros: {len(df_final):,}")
+    print(f"📁 Arquivo salvo: {nome_arquivo}")
+else:
+    print("\n⚠️ Nenhum dado retornado pela API para o intervalo solicitado.")
