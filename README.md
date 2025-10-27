@@ -1,56 +1,37 @@
-# 📊 Projetos de Coleta de Dados SENAI – Sistema de Transparência
+# 📊 Coleta e Tratamento de Dados de Gratuidade – SESI / SENAI / FIRJAN
 
-Este repositório contém **três scripts Python** que coletam e consolidam dados públicos do **Sistema de Transparência da Gratuidade do SENAI** via API.
+Este repositório reúne **scripts Python** para coleta, tratamento e organização de dados de gratuidade educacional disponibilizados nos portais de transparência do **SESI** e **SENAI (FIRJAN)**.
 
----
-
-## 🚀 Scripts incluídos
-
-### 1. `Gratuidade`
-
-Baixa e organiza os dados de **vagas de gratuidade** por departamento regional do SENAI, detalhando programas e produtos.
-
-### 2. `Gratuidade Indicadores`
-
-Coleta os **indicadores de desempenho da gratuidade**, como metas, realizações e índices de cumprimento por estado.
-
-### 3. `SENAI - Resultado da Gratuidade Regimental`
-
-Obtém o **cumprimento do acordo de gratuidade regimental**, consolidando informações de todos os departamentos regionais.
+Os scripts permitem extrair dados de **vagas gratuitas, indicadores, horas-aluno e cumprimento de acordo regulatório/regimental**, organizando tudo em arquivos **.xlsx prontos para análise e dashboards (ex: Power BI)**.
 
 ---
 
-## ⚙️ Instalação de dependências
+## ✅ Funcionalidades
 
-Para executar os scripts, instale as bibliotecas necessárias:
+✔ Coleta de dados por **ano, unidade federativa (UF) e entidade (SESI/SENAI)**  
+✔ Tratamento e reorganização das planilhas (padronização de colunas, criação de “Outros Programas”)  
+✔ Geração automática de arquivos Excel (.xlsx)  
+✔ Scripts específicos para **cumprimento da gratuidade regulatória/regimental**  
+✔ Compatível com **Power BI, Excel, Tableau ou CSV para bancos de dados**
 
+---
+
+## 📂 Estrutura dos Scripts
+
+| Nº | Script | Finalidade | Saída Gerada | Quando Utilizar |
+|----|--------|-------------|---------------|------------------|
+| 1 | `coletar_vagas.py` | Coleta de **vagas gratuitas, hora-aluno e programas** por ano e UF | `gratuidade_vagas_completa.xlsx` | Usar para visualizar vagas ofertadas, hora-aluno e programas gratuitos. |
+| 2 | `coletar_indicadores.py` | Coleta de **indicadores de gratuidade** (realizado x previsto) | `gratuidade_indicadores.xlsx` | Usar para comparar metas e execução da gratuidade. |
+| 3 | `reorganizar_vagas_outros.py` | Reestrutura o arquivo de vagas, criando a categoria **“Outros Programas”** | `gratuidade_vagas_reorganizada.xlsx` | Usar após rodar o script 1, para organizar horas-aluno “Outros”. |
+| 4 | `coletar_regulamentar_senai.py` | Coleta do **cumprimento da gratuidade regulatória (SENAI)** | `gratuidade_regulamentar_senai_2021_2025.xlsx` | Usar para SENAI entre 2021 e 2025. |
+| 5 | `coletar_regulamentar_sesi.py` | Coleta do **cumprimento da gratuidade regulatória (SESI)** | `gratuidade_regulamentar_sesi_2021_2025.xlsx` | Usar para SESI entre 2021 e 2025. |
+| 6 | `coletar_regulamentar_sesi_repeat.py` | Versão duplicada / backup do script do SESI | — | Usar apenas para testes ou comparações. |
+
+---
+
+## ⚙️ Como Utilizar
+
+### 1️⃣ Clonar o repositório
 ```bash
-pip install pandas requests tqdm openpyxl
-```
-
-### 🧠 Função de cada biblioteca
-
-* **pandas** → organiza e manipula os dados retornados da API em formato de tabela (DataFrame).
-* **requests** → realiza as requisições HTTP para coletar os dados das APIs públicas do Sistema de Transparência.
-* **tqdm** → exibe uma barra de progresso enquanto os dados de todos os estados são baixados.
-* **openpyxl** → permite salvar os resultados em arquivos **Excel (.xlsx)**.
-
----
-
-## 💾 Saída
-
-Cada script gera um arquivo `.xlsx` consolidado contendo os dados de todos os 27 departamentos regionais do SENAI.
-
-Os arquivos são nomeados automaticamente conforme o tipo de dado e o ano, por exemplo:
-
-```
-gratuidade_senai_2024.xlsx
-gratuidade_indicadores_senai_2024.xlsx
-resultado_gratuidade_senai_2024.xlsx
-```
-
----
-
-## 📅 Tratamento de Datas
-
-Os scripts convertem automaticamente os campos de data (como `dataAtualizacao` e `dataSensibilizacao`) para o formato legível **AAAA-MM-DD HH:MM:SS**, corrigindo valores numéricos (timestamp) retornados pela API.
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+cd SEU_REPOSITORIO
