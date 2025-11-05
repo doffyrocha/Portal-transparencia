@@ -1,0 +1,44 @@
+import requests
+import pandas as pd
+from tqdm import tqdm
+
+# Lista de departamentos SESI (padrão da API)
+departamentos = [
+    "SESI-AC", "SESI-AL", "SESI-AM", "SESI-AP", "SESI-BA", "SESI-CE", "SESI-DF", "SESI-ES",
+    "SESI-GO", "SESI-MA", "SESI-MG", "SESI-MS", "SESI-MT", "SESI-PA", "SESI-PB", "SESI-PE",
+    "SESI-PI", "SESI-PR", "SESI-RJ", "SESI-RN", "SESI-RO", "SESI-RR", "SESI-RS", "SESI-SC",
+    "SESI-SE", "SESI-SP", "SESI-TO"
+]
+
+anos = range(2021, 2026)
+base_url = "https://sistematransparenciaweb.com.br/api-gratuidade-resultados/publico/gratuidade/modalidade/sesi/despesa-total"
+
+dados = []
+
+for dep in tqdm(departamentos, desc="Departamentos SESI"):
+    for ano in anos:
+        url = f"{base_url}?entidade=SESI&departamento={dep}&ano={ano}"
+        try:
+            r = requests.get(url, headers={"accept": "application/json"})
+            if r.text.strip() and "programas" in r.text:
+                data = r.json()
+                for programa in data.get("programas", []):
+                    for modalidade in programa.get("modalidades", []):
+                        dados.append({
+                            "ano": data.get("ano"),
+                            "departamento": data.get("departamento"),
+                            "programa": programa.get("nomePrograma"),
+                            "modalidade": modalidade.get("nomeModalidade"),
+                            "valorDespesaTotalModalidade": modalidade.get("valorDespesaTotalModalidade"),
+                            "somaTotal": data.get("somaValorDespesaTotalModalidade"),
+                            "fonte": data.get("fonte"),
+                            "dataPublicacao": data.get("dataPublicacao"),
+                            "nota": data.get("nota")
+                        })
+        except Exception as e:
+            print(f"⚠️ Erro em {dep} - {ano}: {e}")
+
+# Converter para DataFrame e salvar
+df = pd.DataFrame(dados)
+df.to_excel("SESI_Despesas_Total_Por_Modalidade.xlsx", index=False)
+print(f"✅ Concluído! Total de linhas extraídas: {len(df)}")
