@@ -1,0 +1,77 @@
+import requests
+import pandas as pd
+from tqdm import tqdm
+
+# Lista de departamentos SENAI (pode trocar para SESI se quiser)
+departamentos = [
+    "SENAI-AC", "SENAI-AL", "SENAI-AM", "SENAI-AP", "SENAI-BA", "SENAI-CE", "SENAI-DF", "SENAI-ES",
+    "SENAI-GO", "SENAI-MA", "SENAI-MG", "SENAI-MS", "SENAI-MT", "SENAI-PA", "SENAI-PB", "SENAI-PE",
+    "SENAI-PI", "SENAI-PR", "SENAI-RJ", "SENAI-RN", "SENAI-RO", "SENAI-RR", "SENAI-RS", "SENAI-SC",
+    "SENAI-SE", "SENAI-SP", "SENAI-TO"
+]
+
+anos = range(2021, 2026)
+base_url = "https://sistematransparenciaweb.com.br/api-gratuidade-resultados/publico/gratuidade/modalidade/senai/hora-aluno-total"
+
+dados = []
+
+print("📊 Iniciando extração: SENAI - Hora-Aluno Total")
+
+for dep in tqdm(departamentos, desc="Departamentos SENAI"):
+    for ano in anos:
+        url = f"{base_url}?entidade=SENAI&departamento={dep}&ano={ano}"
+        try:
+            r = requests.get(url, headers={"accept": "application/json"})
+            if r.status_code == 200 and r.text.strip():
+                data = r.json()
+
+                # Percorrer os programas e modalidades
+                for programa in data.get("programas", []):
+                    nome_programa = programa.get("programa")
+                    for modalidade in programa.get("modalidades", []):
+                        dados.append({
+                            "entidade": data.get("entidade"),
+                            "departamento": data.get("departamento"),
+                            "ano": data.get("ano"),
+                            "categoria": data.get("categoria"),
+                            "programa": nome_programa,
+                            "modalidade": modalidade.get("nome"),
+                            "ead": modalidade.get("ead"),
+                            "presencial": modalidade.get("presencial"),
+                            "total": modalidade.get("total"),
+                            "dataPublicacao": data.get("dataPublicacao"),
+                            "fonte": data.get("fonte")
+                        })
+
+                # Também adiciona os blocos agregados, se existirem
+                for bloco in ["totalModalidadesFixas", "outros", "totalGeral"]:
+                    if bloco in data and data[bloco]:
+                        b = data[bloco]
+                        dados.append({
+                            "entidade": data.get("entidade"),
+                            "departamento": data.get("departamento"),
+                            "ano": data.get("ano"),
+                            "categoria": data.get("categoria"),
+                            "programa": bloco,
+                            "modalidade": b.get("nome"),
+                            "ead": b.get("ead"),
+                            "presencial": b.get("presencial"),
+                            "total": b.get("total"),
+                            "dataPublicacao": data.get("dataPublicacao"),
+                            "fonte": data.get("fonte")
+                        })
+
+        except Exception as e:
+            print(f"⚠️ Erro em {dep} - {ano}: {e}")
+
+# Converter para DataFrame
+df = pd.DataFrame(dados)
+
+# Ordenar por estado e ano
+df.sort_values(by=["departamento", "ano"], inplace=True)
+
+# Exportar para Excel
+df.to_excel("SENAI_Hora_Aluno_Total_Completo.xlsx", index=False)
+
+print(f"✅ Concluído! Linhas extraídas: {len(df)}")
+print("📁 Arquivo salvo como: SENAI_Hora_Aluno_Total_Completo.xlsx")
