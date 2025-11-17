@@ -1,0 +1,74 @@
+import requests
+import pandas as pd
+from tqdm import tqdm
+
+# Lista de departamentos SENAI
+departamentos = [
+    "SENAI-AC", "SENAI-AL", "SENAI-AM", "SENAI-AP", "SENAI-BA", "SENAI-CE", "SENAI-DF", "SENAI-ES",
+    "SENAI-GO", "SENAI-MA", "SENAI-MG", "SENAI-MS", "SENAI-MT", "SENAI-PA", "SENAI-PB", "SENAI-PE",
+    "SENAI-PI", "SENAI-PR", "SENAI-RJ", "SENAI-RN", "SENAI-RO", "SENAI-RR", "SENAI-RS", "SENAI-SC",
+    "SENAI-SE", "SENAI-SP", "SENAI-TO"
+]
+
+anos = range(2021, 2026)
+
+base_url = "https://sistematransparenciaweb.com.br/api-gratuidade-resultados/publico/gratuidade/modalidade/senai/hora-aluno-gratuidade-regimental"
+
+dados = []
+
+print("📊 Iniciando extração: SENAI - Hora-aluno Gratuidade Regimental")
+
+for dep in tqdm(departamentos, desc="Departamentos SENAI"):
+    for ano in anos:
+        url = f"{base_url}?entidade=SENAI&departamento={dep}&ano={ano}"
+
+        try:
+            r = requests.get(url, headers={"accept": "application/json"})
+
+            # Ignorar respostas vazias
+            if r.status_code != 200 or not r.text.strip():
+                continue
+
+            data = r.json()
+
+            # Programas e modalidades
+            for programa in data.get("horaAlunoProgramasModalidades", []):
+                nome_programa = programa.get("nomePrograma")
+
+                for modalidade in programa.get("modalidades", []):
+                    dados.append({
+                        "entidade": data.get("entidade"),
+                        "departamento": data.get("departamento"),
+                        "ano": data.get("ano"),
+                        "programa": nome_programa,
+                        "modalidade": modalidade.get("nomeModalidade"),
+                        "ead": modalidade.get("ead"),
+                        "presencial": modalidade.get("presencial"),
+                        "totalModalidade": modalidade.get("totalModalidade"),
+
+                        # totais gerais
+                        "horaTotalEad": data.get("horaTotalEad"),
+                        "horaTotalPresencial": data.get("horaTotalPresencial"),
+                        "horaTotalGeral": data.get("horaTotalGeral"),
+
+                        # extras
+                        "dataPublicacao": data.get("dataPublicacao"),
+                        "fonte": data.get("fonte"),
+                        "nota": data.get("nota"),
+                        "periodoReferencia": data.get("periodoReferencia"),
+                    })
+
+        except Exception as e:
+            print(f"⚠️ Erro em {dep} - {ano}: {e}")
+
+# Criar DataFrame
+df = pd.DataFrame(dados)
+
+# Ordenar para organizar
+df.sort_values(by=["departamento", "ano"], inplace=True)
+
+# Salvar Excel
+df.to_excel("SENAI_Hora_Aluno_Gratuidade_Regimental.xlsx", index=False)
+
+print(f"✅ Concluído! Total de linhas extraídas: {len(df)}")
+print("📁 Arquivo salvo como: SENAI_Hora_Aluno_Gratuidade_Regimental.xlsx")
